@@ -20,6 +20,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import static org.mockserver.matchers.Times.exactly;
 
 
 @RunWith(VertxUnitRunner.class)
@@ -79,7 +80,7 @@ public class HttpClientPoolTest{
                 .withStatusCode(200)
                 .withDelay(new Delay(TimeUnit.SECONDS, 3));
         // setting the mock server reply
-        mockServer.when(hcRequest).respond(hcDelayResponse);
+        mockServer.when(hcRequest,exactly(2)).respond(hcDelayResponse);
 
         AtomicInteger count = new AtomicInteger();
         for (int i = 1; i <= 3; i++) {
@@ -89,6 +90,7 @@ public class HttpClientPoolTest{
                 System.out.println("Request (#"+t+")" );
                 getClient().get("/hc", response -> {
                 	System.out.println("RESPONSE (#"+t+") is OK" );
+                	async.complete();
                 }).exceptionHandler(ex -> {
                 	System.out.println("EXCEPTION_"+t +" --->"+ex.getLocalizedMessage() + " == "+ex.getClass());
                     
@@ -105,20 +107,16 @@ public class HttpClientPoolTest{
         System.out.println("waiting for 10 seconds before next request" );
         Thread.sleep(10000);
         
-        hcDelayResponse = HttpResponse.response().withBody(HC_RESPONCSE_STRING)
-                .withStatusCode(200)
-                .withDelay(new Delay(TimeUnit.SECONDS, 0));
-        System.out.println("reset the mock server to have 0 delay" );
-        mockServer.when(hcRequest).respond(hcDelayResponse);
         Async async = context.async();
         System.out.println("Sending a request now should be fine" );
         getClient().get("/hc", response -> {
         	System.out.println("RESPONSE is OK !" );
+        	async.complete();
         }).exceptionHandler(ex -> {
         	System.out.println("This exception should not occur: EXCEPTION: --->"+ex.getLocalizedMessage() + " == "+ex.getClass());
             
             async.complete();
-            
+            context.fail(ex);
         }).end();
     }
 
